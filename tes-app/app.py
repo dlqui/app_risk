@@ -1,4 +1,3 @@
-
 import streamlit as st
 import torch
 import torch.nn as nn
@@ -6,40 +5,36 @@ import numpy as np
 import joblib
 import pandas as pd
 import plotly.express as px
+import os
 
 
-# =========================
-# PAGE CONFIG
-# =========================
+
 st.set_page_config(
-    page_title="Diabetes Surveillance System",
+    page_title="Diabetes Prediction using DL",
     layout="wide"
 )
 
-st.markdown(
-    """
-    <style>
-        body { background-color: #0E1117; color: #EAEAEA; }
-        .stApp { background-color: #0E1117; }
-        h1, h2, h3 { color: #FFFFFF; font-family: Arial; }
-        .stMetric {
-            background-color: #161B22;
-            border-radius: 10px;
-            padding: 10px;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+st.markdown("""
+<style>
+body { background-color: #0E1117; color: #EAEAEA; }
+.stApp { background-color: #0E1117; }
+h1, h2, h3 { color: #FFFFFF; font-family: Arial; }
+.stMetric {
+    background-color: #161B22;
+    border-radius: 10px;
+    padding: 10px;
+}
+</style>
+""", unsafe_allow_html=True)
 
 st.title("Diabetes Risk Surveillance System")
+
+
 
 tab1, tab2 = st.tabs(["Individual Risk Prediction", "Population Risk Map"])
 
 
-# =========================
-# MODEL DEFINITION
-# =========================
+
 class DiabetesDNN(nn.Module):
     def __init__(self, input_dim):
         super().__init__()
@@ -65,31 +60,30 @@ class DiabetesDNN(nn.Module):
 INPUT_DIM = 10
 
 
-# =========================
-# LOAD MODEL + SCALER (CACHED)
-# =========================
+
 @st.cache_resource
 def load_model():
+    base_dir = os.path.dirname(__file__)
+    path = os.path.join(base_dir, "diabetes_dnn_a.pt")
+
     model = DiabetesDNN(INPUT_DIM)
-    model.load_state_dict(
-        torch.load("diabetes_dnn_a.pt", map_location=torch.device("cpu"))
-    )
+    model.load_state_dict(torch.load(path, map_location="cpu"))
     model.eval()
     return model
 
 
 @st.cache_resource
 def load_scaler():
-    return joblib.load("scaler.pkl")
+    base_dir = os.path.dirname(__file__)
+    path = os.path.join(base_dir, "scaler.pkl")
+    return joblib.load(path)
 
 
 model = load_model()
 scaler = load_scaler()
 
 
-# ==========================================================
-# TAB 1: INDIVIDUAL PREDICTION
-# ==========================================================
+
 with tab1:
 
     st.subheader("Individual Risk Estimation")
@@ -97,18 +91,89 @@ with tab1:
     col1, col2 = st.columns(2)
 
     with col1:
-        asthma = st.selectbox("Asthma", [0, 1])
-        kidney = st.selectbox("Kidney disease", [0, 1])
-        arthritis = st.selectbox("Arthritis", [0, 1])
-        education = st.slider("Education level", 1, 6, 3)
-        income = st.slider("Income level", 1, 5, 3)
+        asthma = st.selectbox(
+            "Asthma Diagnosis",
+            ["No", "Yes"],
+            help="Has a doctor ever diagnosed asthma?"
+        )
+        asthma = 1 if asthma == "Yes" else 0
+
+        kidney = st.selectbox(
+            "Kidney Disease",
+            ["No", "Yes"],
+            help="Chronic kidney disease diagnosis"
+        )
+        kidney = 1 if kidney == "Yes" else 0
+
+        arthritis = st.selectbox(
+            "Arthritis",
+            ["No", "Yes"],
+            help="Includes arthritis, gout, lupus, or fibromyalgia"
+        )
+        arthritis = 1 if arthritis == "Yes" else 0
+
+        education = st.selectbox(
+            "Education Level",
+            [
+                "1 - No schooling",
+                "2 - Elementary",
+                "3 - Some high school",
+                "4 - High school graduate",
+                "5 - Some college",
+                "6 - College graduate"
+            ]
+        )
+        education = int(education.split(" - ")[0])
+
+        income = st.selectbox(
+            "Income Level",
+            [
+                "1 - Very low",
+                "2 - Low",
+                "3 - Middle",
+                "4 - High",
+                "5 - Very high"
+            ]
+        )
+        income = int(income.split(" - ")[0])
 
     with col2:
-        age = st.slider("Age group", 1, 6, 3)
-        sex = st.selectbox("Sex", [0, 1])
-        bmi = st.slider("BMI", 10.0, 60.0, 27.0)
-        smoking = st.selectbox("Smoking", [0, 1])
-        physical_activity = st.selectbox("Physical activity", [0, 1])
+        age = st.selectbox(
+            "Age Group",
+            [
+                "1 - 18–24",
+                "2 - 25–34",
+                "3 - 35–44",
+                "4 - 45–54",
+                "5 - 55–64",
+                "6 - 65+"
+            ]
+        )
+        age = int(age.split(" - ")[0])
+
+        sex_label = st.selectbox("Sex", ["Female", "Male"])
+        sex = 0 if sex_label == "Female" else 1
+
+        bmi = st.slider(
+            "Body Mass Index (BMI)",
+            10.0, 60.0, 27.0,
+            help="BMI = weight (kg) / height (m²)"
+        )
+
+        smoking = st.selectbox(
+            "Smoking Status",
+            ["Non-smoker", "Smoker"],
+            help="Has smoked at least 100 cigarettes in lifetime"
+        )
+        smoking = 1 if smoking == "Smoker" else 0
+
+        physical_activity = st.selectbox(
+            "Physical Activity",
+            ["Active", "Inactive"],
+            help="Any physical activity in the past 30 days"
+        )
+        physical_activity = 1 if physical_activity == "Active" else 0
+
 
     x = np.array([[
         asthma, kidney, arthritis,
@@ -129,10 +194,10 @@ with tab1:
 
         colA.metric("Risk Score", f"{prob:.3f}")
         colB.metric(
-            "Classification",
-            "High" if prob > 0.7 else "Medium" if prob > 0.3 else "Low"
+            "Risk Category",
+            "High" if prob > 0.7 else "Moderate" if prob > 0.3 else "Low"
         )
-        colC.metric("Decision Threshold", "0.50")
+        colC.metric("Model Threshold", "0.50")
 
         fig = px.bar(
             x=["No Risk", "Risk"],
@@ -155,9 +220,7 @@ with tab1:
         st.plotly_chart(fig, use_container_width=True)
 
 
-# ==========================================================
-# TAB 2: POPULATION MAP
-# ==========================================================
+
 with tab2:
 
     st.subheader("State-Level Risk Simulation")
