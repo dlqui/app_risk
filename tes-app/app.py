@@ -27,7 +27,7 @@ h1, h2, h3 { color: #FFFFFF; font-family: Arial; }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("Diabetes Risk Surveillance System")
+st.title("Diabetes Prediction using DL")
 
 
 
