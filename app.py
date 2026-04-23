@@ -10,7 +10,7 @@ import os
 
 
 st.set_page_config(
-    page_title="Diabetes Surveillance System",
+    page_title="Diabetes Prediction using DL",
     layout="wide"
 )
 
